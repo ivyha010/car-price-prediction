@@ -5,7 +5,7 @@
 #
 # To-do tasks:
 # EDA
-# Target variable distribution - long tail -  bell shaped curve
+# Target variable distribution
 # Split dataset into train/val/test sets
 # Implement the linear regression model with scikit-learn
 # Use RMSE to validate the proposed model
