@@ -5,35 +5,20 @@
 #
 # To-do tasks:
 # EDA
-# Target variable distribution 
+# Target variable distribution - long tail -  bell shaped curve
 # Split dataset into train/val/test sets
 # Implement the linear regression model with numpy
 # Use RMSE to validate the proposed model
-# Feature engineering using age, categorical features
-# Regularization 
+# Feature engineering: age, categorical features
+# Regularization to fight numerical instability
 
 import pandas as pd
 import numpy as np
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import mean_squared_error
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-
-def train_linear_regression(X, y):
-    ones = np.ones(X.shape[0])
-    X = np.column_stack([ones, X])
-
-    XTX = X.T.dot(X)
-    XTX_inv = np.linalg.inv(XTX)
-    w_full = XTX_inv.dot(X.T).dot(y)
-
-    return w_full[0], w_full[1:]
-
-# RMSE
-def rmse(y, y_pred):
-    se = (y - y_pred) ** 2
-    mse = se.mean()
-    return np.sqrt(mse)
 
 def prepare_X(df):
     df_num = df[base]
@@ -52,10 +37,8 @@ def prepare_X_more(df):
 
     return X
 
-
 def prepare_X_dummy(df):
     df = df.copy()
-
     df['age'] = 2017 - df['year']
     features = base + ['age']
 
@@ -73,18 +56,6 @@ def prepare_X_dummy(df):
     X = df_num.values
 
     return X
-
-def train_linear_regression_reg(X, y, r=0.001):
-    ones = np.ones(X.shape[0])
-    X = np.column_stack([ones, X])
-
-    XTX = X.T.dot(X)
-    XTX = XTX + r * np.eye(XTX.shape[0])
-
-    XTX_inv = np.linalg.inv(XTX)
-    w_full = XTX_inv.dot(X.T).dot(y)
-
-    return w_full[0], w_full[1:]
 
 
 if __name__=="__main__":
@@ -159,10 +130,13 @@ if __name__=="__main__":
     # Car price baseline model using linear regression
     print('Columns: ', df_train.columns)
     base = ['engine_hp', 'engine_cylinders', 'highway_mpg', 'city_mpg', 'popularity']
-
     X_train = df_train[base].fillna(0).values  # Replace NAN to 0 and get their values
-    w0, w = train_linear_regression(X_train, y_train)
-    y_pred = w0 + X_train.dot(w)
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    print('Model intercept: ', model.intercept_)
+    print('Model coefficients: ', model.coef_)
+
+    y_pred = model.predict(X_train)
 
     ## Plot predict values and targets
     sns.histplot(y_pred, color='red', alpha=0.5, bins=50)
@@ -171,23 +145,20 @@ if __name__=="__main__":
     plt.close()
 
     ## RMSE
-    print(rmse(y_train, y_pred))
+    print('RMSE on the train set: ', mean_squared_error(y_train, y_pred, squared=False))
 
     ## Validating the model
-    X_train = prepare_X(df_train)
-    w0, w = train_linear_regression(X_train, y_train)
-
     X_val = prepare_X(df_val)
-    y_pred = w0 + X_val.dot(w)
-    rmse(y_val, y_pred)
+    y_pred = model.predict(X_val)
+    print('RMSE on the val. dataset: ', mean_squared_error(y_val, y_pred, squared=False))
 
-    # Simple feature engineering: Adding the "age"column
+    # Simple feature engineering: Adding the "age" column
     X_train = prepare_X_more(df_train)
-    w0, w = train_linear_regression(X_train, y_train)
-
+    model = LinearRegression()
+    model.fit(X_train, y_train)
     X_val = prepare_X_more(df_val)
-    y_pred = w0 + X_val.dot(w)
-    rmse(y_val, y_pred)
+    y_pred = model.predict(X_val)
+    print('RMSE on the val. dataset with the age column added: ', mean_squared_error(y_val, y_pred, squared=False))
 
     sns.histplot(y_pred, label='prediction', color='red', alpha=0.5, bins=50)
     sns.histplot(y_val, label='target', color='blue',  alpha=0.5, bins=50)
@@ -207,61 +178,51 @@ if __name__=="__main__":
 
     # Dummy variables: Number of doors
     X_train = prepare_X_dummy(df_train)
-    w0, w = train_linear_regression(X_train, y_train)
-
+    model = LinearRegression()
+    model.fit(X_train, y_train)
     X_val = prepare_X_dummy(df_val)
-    y_pred = w0 + X_val.dot(w)
-    rmse(y_val, y_pred)
+    y_pred = model.predict(X_val)
+    print('RMSE on the val. dataset (add age and dummy variables)', mean_squared_error(y_val, y_pred, squared=False))
 
     # Regularized linear regression with r = 0.01
     X_train = prepare_X_dummy(df_train)
-    w0, w = train_linear_regression_reg(X_train, y_train, r=0.01)
-
+    model = Ridge(alpha=0.01)
+    model.fit(X_train, y_train)
     X_val = prepare_X_dummy(df_val)
-    y_pred = w0 + X_val.dot(w)
-    rmse(y_val, y_pred)
+    y_pred = model.predict(X_val)
+    print('RMSE on the val. dataset (add age and dummy variables) - Regularization ', mean_squared_error(y_val, y_pred, squared=False))
 
     # Tuning the model
-    for r in [0.0, 0.00001, 0.0001, 0.001, 0.1, 1, 10]:
+    for r in [0.0, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10]:
         X_train = prepare_X_dummy(df_train)
-        w0, w = train_linear_regression_reg(X_train, y_train, r=r)
-
+        model = Ridge(alpha=r)
+        model.fit(X_train, y_train)
         X_val = prepare_X_dummy(df_val)
-        y_pred = w0 + X_val.dot(w)
-        score = rmse(y_val, y_pred)
+        y_pred = model.predict(X_val)
+        score = mean_squared_error(y_val, y_pred, squared=False)
+        print(r, model.intercept_, score)
 
-        print(r, w0, score)
 
-
-    r = 0.0001  # The model achieve the best performance when r = 0.0001
-    X_train = prepare_X_dummy(df_train)
-    w0, w = train_linear_regression_reg(X_train, y_train, r=r)
-
-    X_val = prepare_X_dummy(df_val)
-    y_pred = w0 + X_val.dot(w)
-    score = rmse(y_val, y_pred)
-    print(score)
-
+    # The model achieve the best performance with linear regression
     # Using the model
     df_full_train = pd.concat([df_train, df_val])
     df_full_train = df_full_train.reset_index(drop=True)
     X_full_train = prepare_X_dummy(df_full_train)
     y_full_train = np.concatenate([y_train, y_val])
-    w0, w = train_linear_regression_reg(X_full_train, y_full_train, r=0.0001)
-
+    model = LinearRegression()
+    model.fit(X_full_train, y_full_train)
     X_test = prepare_X_dummy(df_test)
-    y_pred = w0 + X_test.dot(w)
-    score = rmse(y_test, y_pred)
-    print(score)
+    y_pred = model.predict(X_test)
+    score = mean_squared_error(y_test, y_pred, squared=False)
+    print('RMSE on test dataset: ', score)
 
     # Test with a specific value:
     car = df_test.iloc[10].to_dict()
     df_small = pd.DataFrame([car])
     print(df_small)
     X_small = prepare_X_dummy(df_small)
-    y_pred = w0 + X_small.dot(w)
+    y_pred = model.predict(X_small)
     y_pred = y_pred[0]
     print(y_pred)
     print('Predicted value: ', np.expm1(y_pred))
     print('Target: ', np.expm1(y_test[10]))
-
