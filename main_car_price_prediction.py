@@ -7,10 +7,10 @@
 # EDA
 # Target variable distribution - long tail -  bell shaped curve
 # Split dataset into train/val/test sets
-# Implement the linear regression model with numpy
+# Implement the linear regression model with scikit-learn
 # Use RMSE to validate the proposed model
 # Feature engineering: age, categorical features
-# Regularization to fight numerical instability
+# Regularization
 
 import pandas as pd
 import numpy as np
